@@ -182,6 +182,144 @@ app.post('/api/requests', auth, async (req, res) => {
         });
     }
 });
+app.get('/api/requests', auth, async (req, res) => {
+    const isAdmin = req.user?.role === 'admin';
+    try {
+        let query;
+        let values;
+        if (isAdmin) {
+            query = `
+         SELECT
+            r.id,
+            r.start_date,
+            r.payment_method,
+            r.status,
+            r.created_at,
+            u.full_name,
+            u.login,
+            rm.name AS room_name,
+            rv.rating,
+            rv.comment
+        FROM requests r
+        JOIN users u
+            ON u.id = r.user_id
+        JOIN rooms rm
+            ON rm.id = r.room_id
+        LEFT JOIN reviews rv
+            ON rv.request_id = r.id
+        ORDER BY r.created_at DESC
+      `;
+            values = [];
+        }
+        else {
+            query = `
+        SELECT
+            r.id,
+            r.start_date,
+            r.payment_method,
+            r.status,
+            r.created_at,
+            rm.name AS room_name,
+            rv.rating,
+            rv.comment
+        FROM requests r
+        JOIN rooms rm
+            ON rm.id = r.room_id
+        LEFT JOIN reviews rv
+            ON rv.request_id = r.id
+        WHERE r.user_id = $1
+        ORDER BY r.created_at DESC
+      `;
+            values = [req.user.id];
+        }
+        const result = await pool.query(query, values);
+        res.json(result.rows);
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({
+            message: 'Не удалось получить заявки'
+        });
+    }
+});
+app.patch('/api/requests/:id/status', auth, adminOnly, async (req, res) => {
+    const { status } = req.body;
+    const allowedStatuses = [
+        'Мероприятие назначено',
+        'Завершено'
+    ];
+    if (!allowedStatuses.includes(status)) {
+        return res.status(400).json({
+            message: 'Недопустимый статус'
+        });
+    }
+    try {
+        await pool.query(`
+          UPDATE requests
+          SET status = $1
+          WHERE id = $2
+        `, [status, req.params.id]);
+        res.json({
+            message: 'Статус изменён'
+        });
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({
+            message: 'Не удалось изменить статус'
+        });
+    }
+});
+app.post('/api/requests/:id/review', auth, async (req, res) => {
+    const { rating, comment } = req.body;
+    if (!Number.isInteger(rating) ||
+        rating < 1 ||
+        rating > 5 ||
+        !comment ||
+        !comment.trim()) {
+        return res.status(400).json({
+            message: 'Укажите оценку от 1 до 5 и текст отзыва'
+        });
+    }
+    try {
+        const query = `
+        SELECT id
+        FROM requests
+        WHERE id = $1
+          AND user_id = $2
+          AND status = 'Завершено'
+      `;
+        const result = await pool.query(query, [
+            req.params.id,
+            req.user.id
+        ]);
+        if (result.rowCount === 0) {
+            return res.status(400).json({
+                message: 'Отзыв можно оставить только после завершения мероприятия'
+            });
+        }
+        const insertQuery = `
+        INSERT INTO reviews
+          (request_id, user_id, rating, comment)
+        VALUES ($1, $2, $3, $4)
+      `;
+        await pool.query(insertQuery, [
+            req.params.id,
+            req.user.id,
+            rating,
+            comment.trim()
+        ]);
+        res.status(201).json({
+            message: 'Отзыв сохранён'
+        });
+    }
+    catch (error) {
+        console.error(error);
+        res.status(409).json({
+            message: 'Для этой заявки отзыв уже существует'
+        });
+    }
+});
 app.listen(port, () => {
     console.log(`API запущен: http://localhost:${port}`);
 });

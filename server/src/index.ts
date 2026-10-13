@@ -277,18 +277,24 @@ app.get('/api/requests', auth, async (
 
     if (isAdmin) {
       query = `
-        SELECT
-          r.id,
-          r.start_date,
-          r.payment_method,
-          r.status,
-          r.created_at,
-          u.full_name,
-          u.login,
-          rm.name AS room_name
+         SELECT
+            r.id,
+            r.start_date,
+            r.payment_method,
+            r.status,
+            r.created_at,
+            u.full_name,
+            u.login,
+            rm.name AS room_name,
+            rv.rating,
+            rv.comment
         FROM requests r
-        JOIN users u ON u.id = r.user_id
-        JOIN rooms rm ON rm.id = r.room_id
+        JOIN users u
+            ON u.id = r.user_id
+        JOIN rooms rm
+            ON rm.id = r.room_id
+        LEFT JOIN reviews rv
+            ON rv.request_id = r.id
         ORDER BY r.created_at DESC
       `;
 
@@ -296,14 +302,19 @@ app.get('/api/requests', auth, async (
     } else {
       query = `
         SELECT
-          r.id,
-          r.start_date,
-          r.payment_method,
-          r.status,
-          r.created_at,
-          rm.name AS room_name
+            r.id,
+            r.start_date,
+            r.payment_method,
+            r.status,
+            r.created_at,
+            rm.name AS room_name,
+            rv.rating,
+            rv.comment
         FROM requests r
-        JOIN rooms rm ON rm.id = r.room_id
+        JOIN rooms rm
+            ON rm.id = r.room_id
+        LEFT JOIN reviews rv
+            ON rv.request_id = r.id
         WHERE r.user_id = $1
         ORDER BY r.created_at DESC
       `;
@@ -363,6 +374,72 @@ app.patch(
     }
   }
 );
+
+app.post(
+  '/api/requests/:id/review',
+  auth,
+  async (req: AuthRequest, res) => {
+    const { rating, comment } = req.body;
+
+    if (
+      !Number.isInteger(rating) ||
+      rating < 1 ||
+      rating > 5 ||
+      !comment ||
+      !comment.trim()
+    ) {
+      return res.status(400).json({
+        message: 'Укажите оценку от 1 до 5 и текст отзыва'
+      });
+    }
+
+    try {
+      const query = `
+        SELECT id
+        FROM requests
+        WHERE id = $1
+          AND user_id = $2
+          AND status = 'Завершено'
+      `;
+
+      const result = await pool.query(query, [
+        req.params.id,
+        req.user!.id
+      ]);
+
+      if (result.rowCount === 0) {
+        return res.status(400).json({
+          message: 'Отзыв можно оставить только после завершения мероприятия'
+        });
+      }
+
+      const insertQuery = `
+        INSERT INTO reviews
+          (request_id, user_id, rating, comment)
+        VALUES ($1, $2, $3, $4)
+      `;
+
+      await pool.query(insertQuery, [
+        req.params.id,
+        req.user!.id,
+        rating,
+        comment.trim()
+      ]);
+
+      res.status(201).json({
+        message: 'Отзыв сохранён'
+      });
+    } catch (error) {
+      console.error(error);
+
+      res.status(409).json({
+        message: 'Для этой заявки отзыв уже существует'
+      });
+    }
+  }
+);
+
+
 
 
 app.listen(port, () =>{
