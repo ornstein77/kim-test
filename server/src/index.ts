@@ -49,6 +49,18 @@ function auth(
     });
   }
 }
+function adminOnly(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+){
+    if (req.user?.role !== 'admin'){
+        return res.status(403).json({
+            message: 'Доступ только для администратора'
+        });
+    }
+    next();
+}
 
 
 
@@ -191,18 +203,8 @@ app.post('/api/auth/login', async(req,res) => {
     
 });
 
-app.get('/api/profile', auth, (req: AuthRequest, res) => {
-  res.json({
-    message: 'Авторизация прошла успешно',
-    user: req.user
-  });
-});
 
-
-
-
-
-app.get('/api/rooms', async(_req,res) =>{
+app.get('/api/rooms',auth, async(_req,res) =>{
     try {
         const result = await pool.query(
             'SELECT * FROM rooms ORDER BY id'
@@ -216,6 +218,152 @@ app.get('/api/rooms', async(_req,res) =>{
         });
     }
 });
+
+app.post('/api/requests',auth,async(req:AuthRequest,res) =>{
+    const {
+        roomId,
+        startDate,
+        paymentMethod
+    } = req.body;
+    const allowedPayments = ['onsite',"sbp"];
+
+    if (
+        !roomId ||
+        !startDate ||
+        !allowedPayments.includes(paymentMethod)
+    ){
+        return res.status(400).json({
+            message: 'Заполните все поля заявки'
+        });
+    }
+
+    try {
+     const query = `
+      INSERT INTO requests
+        (user_id, room_id, start_date, payment_method)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id
+        `;
+        const result = await pool.query(query, [
+        req.user!.id,
+        roomId,
+        startDate,
+        paymentMethod
+        ]);
+
+        res.status(201).json({
+        id: result.rows[0].id,
+        message: 'Заявка отправлена администратору'
+        });
+
+    } catch(error){
+        console.error(error);
+
+        res.status(500).json({
+            message: 'Не удалось создать заявку'
+        });
+    }
+});
+
+app.get('/api/requests', auth, async (
+  req: AuthRequest,
+  res
+) => {
+  const isAdmin = req.user?.role === 'admin';
+
+  try {
+    let query: string;
+    let values: number[];
+
+    if (isAdmin) {
+      query = `
+        SELECT
+          r.id,
+          r.start_date,
+          r.payment_method,
+          r.status,
+          r.created_at,
+          u.full_name,
+          u.login,
+          rm.name AS room_name
+        FROM requests r
+        JOIN users u ON u.id = r.user_id
+        JOIN rooms rm ON rm.id = r.room_id
+        ORDER BY r.created_at DESC
+      `;
+
+      values = [];
+    } else {
+      query = `
+        SELECT
+          r.id,
+          r.start_date,
+          r.payment_method,
+          r.status,
+          r.created_at,
+          rm.name AS room_name
+        FROM requests r
+        JOIN rooms rm ON rm.id = r.room_id
+        WHERE r.user_id = $1
+        ORDER BY r.created_at DESC
+      `;
+
+      values = [req.user!.id];
+    }
+
+    const result = await pool.query(query, values);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: 'Не удалось получить заявки'
+    });
+  }
+});
+
+app.patch(
+  '/api/requests/:id/status',
+  auth,
+  adminOnly,
+  async (req, res) => {
+    const { status } = req.body;
+
+    const allowedStatuses = [
+      'Мероприятие назначено',
+      'Завершено'
+    ];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        message: 'Недопустимый статус'
+      });
+    }
+
+    try {
+      await pool.query(
+        `
+          UPDATE requests
+          SET status = $1
+          WHERE id = $2
+        `,
+        [status, req.params.id]
+      );
+
+      res.json({
+        message: 'Статус изменён'
+      });
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        message: 'Не удалось изменить статус'
+      });
+    }
+  }
+);
+
 
 app.listen(port, () =>{
     console.log(`API запущен: http://localhost:${port}`)

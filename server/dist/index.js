@@ -25,6 +25,14 @@ function auth(req, res, next) {
         });
     }
 }
+function adminOnly(req, res, next) {
+    if (req.user?.role !== 'admin') {
+        return res.status(403).json({
+            message: 'Доступ только для администратора'
+        });
+    }
+    next();
+}
 app.use(cors());
 app.use(express.json());
 app.get('/api/health', (_req, res) => {
@@ -127,13 +135,7 @@ app.post('/api/auth/login', async (req, res) => {
         });
     }
 });
-app.get('/api/profile', auth, (req, res) => {
-    res.json({
-        message: 'Авторизация прошла успешно',
-        user: req.user
-    });
-});
-app.get('/api/rooms', async (_req, res) => {
+app.get('/api/rooms', auth, async (_req, res) => {
     try {
         const result = await pool.query('SELECT * FROM rooms ORDER BY id');
         res.json(result.rows);
@@ -142,6 +144,41 @@ app.get('/api/rooms', async (_req, res) => {
         console.error(error);
         res.status(500).json({
             message: 'Не удалось получить список помещений'
+        });
+    }
+});
+app.post('/api/requests', auth, async (req, res) => {
+    const { roomId, startDate, paymentMethod } = req.body;
+    const allowedPayments = ['onsite', "sbp"];
+    if (!roomId ||
+        !startDate ||
+        !allowedPayments.includes(paymentMethod)) {
+        return res.status(400).json({
+            message: 'Заполните все поля заявки'
+        });
+    }
+    try {
+        const query = `
+      INSERT INTO requests
+        (user_id, room_id, start_date, payment_method)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id
+        `;
+        const result = await pool.query(query, [
+            req.user.id,
+            roomId,
+            startDate,
+            paymentMethod
+        ]);
+        res.status(201).json({
+            id: result.rows[0].id,
+            message: 'Заявка отправлена администратору'
+        });
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({
+            message: 'Не удалось создать заявку'
         });
     }
 });
