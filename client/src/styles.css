@@ -1,0 +1,96 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f3f5f8;
+  color: #182230;
+}
+
+.auth {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.auth-form {
+  width: 380px;
+  padding: 30px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px #00000018;
+}
+
+.auth-form h1 {
+  color: #19355c;
+}
+
+.auth-form h2 {
+  margin-bottom: 25px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 15px;
+}
+
+input {
+  padding: 10px;
+  border: 1px solid #b8c4d1;
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+button {
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 5px;
+  background: #286fbd;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #1d599a;
+}
+
+.link-button {
+  display: block;
+  margin-top: 18px;
+  padding: 0;
+  background: none;
+  color: #286fbd;
+}
+
+.error {
+  margin-bottom: 15px;
+  padding: 10px;
+  border-radius: 5px;
+  background: #ffe7e7;
+  color: #a00000;
+}
+
+.app header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 40px;
+  background: #19355c;
+  color: white;
+}
+
+.app header div {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.app main {
+  max-width: 1000px;
+  margin: 30px auto;
+}
