@@ -94,3 +94,97 @@ button:hover {
   max-width: 1000px;
   margin: 30px auto;
 }
+
+.navigation {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 25px;
+  border-bottom: 1px solid #d4dce5;
+}
+
+.navigation button {
+  background: transparent;
+  color: #526273;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+}
+
+.navigation button.active {
+  color: #1f65a8;
+  border-bottom-color: #1f65a8;
+}
+
+.request-list {
+  display: grid;
+  gap: 18px;
+}
+
+.request-card {
+  padding: 20px;
+  background: white;
+  border: 1px solid #dce3eb;
+  border-radius: 8px;
+}
+
+.request-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.status {
+  height: fit-content;
+  padding: 6px 10px;
+  border-radius: 15px;
+  background: #eaf2fc;
+  color: #2364a7;
+  font-size: 14px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.request-form {
+  max-width: 600px;
+  display: grid;
+  gap: 18px;
+  padding: 25px;
+  background: white;
+  border-radius: 8px;
+}
+
+.request-form select,
+.request-form input {
+  width: 100%;
+}
+
+.request-form fieldset {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d4dce5;
+  border-radius: 6px;
+}
+
+.request-form fieldset label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.message {
+  padding: 10px;
+  border-radius: 5px;
+  background: #eaf4ff;
+  color: #245f9f;
+}
+
+.review {
+  margin-top: 15px;
+  padding: 12px;
+  border-radius: 6px;
+  background: #fff8df;
+}
